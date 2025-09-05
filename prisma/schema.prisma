@@ -1,0 +1,186 @@
+// Digital Krishi Officer Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  phone         String?
+  
+  // Farmer specific fields
+  farmSize      Float?    // in acres
+  location      String?   // city/district
+  state         String?
+  language      String    @default("english") // preferred language
+  experience    Int?      // years of farming experience
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  accounts      Account[]
+  sessions      Session[]
+  crops         Crop[]
+  diseaseReports DiseaseReport[]
+  rewards       Reward[]
+  
+  @@map(name: "users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Crop Management
+model Crop {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  variety     String?
+  plantedDate DateTime?
+  harvestDate DateTime?
+  area        Float?   // in acres
+  status      String   @default("growing") // growing, harvested, failed
+  
+  // Recommendations
+  fertilizers Json?    // fertilizer recommendations
+  pesticides  Json?    // pesticide recommendations
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Disease Detection
+model DiseaseReport {
+  id          String   @id @default(cuid())
+  userId      String
+  cropName    String
+  imageUrl    String
+  
+  // AI Analysis Results
+  diseaseName       String?
+  confidence        Float?
+  symptoms          Json?    // array of symptoms
+  treatments        Json?    // recommended treatments
+  severity          String?  // low, medium, high, critical
+  preventionTips    Json?    // prevention recommendations
+  
+  // Additional Info
+  location    String?
+  weatherConditions Json?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Reward System
+model Reward {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // image_upload, feedback, survey, etc.
+  points      Int
+  description String
+  status      String   @default("pending") // pending, approved, rejected
+  
+  // Quality validation
+  qualityScore Float?
+  validatedBy  String?
+  validatedAt  DateTime?
+  
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Market Data (cached from APIs)
+model MarketPrice {
+  id          String   @id @default(cuid())
+  commodity   String
+  market      String   // mandi name
+  state       String
+  price       Float    // per quintal
+  unit        String   @default("quintal")
+  date        DateTime
+  source      String   // eNAM, mandi, etc.
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([commodity, market, date])
+}
+
+// Weather Data Cache
+model WeatherData {
+  id          String   @id @default(cuid())
+  location    String
+  temperature Float
+  humidity    Float
+  rainfall    Float?
+  windSpeed   Float?
+  conditions  String   // sunny, rainy, cloudy, etc.
+  date        DateTime
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([location, date])
+}
+
+// Government Schemes
+model GovernmentScheme {
+  id              String   @id @default(cuid())
+  name            String
+  description     String
+  eligibility     Json     // eligibility criteria
+  benefits        Json     // scheme benefits
+  applicationUrl  String?
+  department      String
+  state           String?  // null for central schemes
+  isActive        Boolean  @default(true)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
